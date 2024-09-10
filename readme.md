@@ -5,6 +5,7 @@ This is a collection of notebooks and scripts that goes through the process of d
 # Installing dependencies
 
 [CUDA](https://developer.nvidia.com/cuda-downloads) Version 12.3 >= is required to run the code.
+
 [Python](https://www.python.org/downloads/) Version 3.10.x >= is required to run the code.
 
 # Setting up a virtual environment
