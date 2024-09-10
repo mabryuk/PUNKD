@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from monai.transforms import AsDiscrete
+from tqdm.notebook import tqdm
 
 
 # Define the building blocks of the U-Net model
@@ -84,7 +85,7 @@ def train_epoch(model, train_loader, criterion, optimizer, device):
     model.train()
     loss_item = 0.0
     
-    for data in train_loader:
+    for data in tqdm(train_loader, desc="Training", unit="batch", position=1, leave=False):
         inputs = torch.cat([
             data["t1"], data["t2"], data["t1ce"], data["flair"]
         ], dim=1).to(device)
@@ -95,7 +96,7 @@ def train_epoch(model, train_loader, criterion, optimizer, device):
         if targets.shape[1] != 1:
             targets = targets.unsqueeze(1)
             
-        targets = one_hot_transform(targets, num_classes=4)
+        targets = one_hot_transform(targets)
         
         optimizer.zero_grad()
         
@@ -126,7 +127,7 @@ def validate_epoch(model, val_loader, criterion_all, criterion_sep, device):
     criterion_sep.reset()
     loss_item = 0.0
     with torch.no_grad():
-        for data in val_loader:
+        for data in tqdm(val_loader, desc="Validation", unit="batch", position=1, leave=False):
             inputs = torch.cat([
             data["t1"], data["t2"], data["t1ce"], data["flair"]
             ], dim=1).to(device)
@@ -137,7 +138,7 @@ def validate_epoch(model, val_loader, criterion_all, criterion_sep, device):
             if targets.shape[1] != 1:
                 targets = targets.unsqueeze(1)
                 
-            targets = one_hot_transform(targets, num_classes=4)
+            targets = one_hot_transform(targets)
             
             outputs = model(inputs)
             
@@ -148,8 +149,8 @@ def validate_epoch(model, val_loader, criterion_all, criterion_sep, device):
             if outputs.shape != targets.shape:
                 outputs = outputs.permute(0, 2, 1, 3, 4)
             
-            val_outputs = val_outputs.cpu()
-            val_labels = val_labels.cpu()
+            val_outputs = outputs.cpu()
+            val_labels = targets.cpu()
             combined_val_outputs = torch.argmax(val_outputs, dim=1, keepdim=True)
             combined_val_labels = torch.argmax(val_labels, dim=1, keepdim=True)
             

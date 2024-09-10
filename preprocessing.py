@@ -26,7 +26,7 @@ class EqualizeAndRescaleHistTransform(Transform):
     def __init__(self, keys, save_path='images after HistoEqual'):
         self.keys = keys
         self.save_path = save_path
-        os.makedirs(self.save_path, exist_ok=True)
+        #os.makedirs(self.save_path, exist_ok=True)
 
     def save_image(self, data, key, status=""):
       """
@@ -43,7 +43,7 @@ class EqualizeAndRescaleHistTransform(Transform):
           plt.imshow(img, cmap='gray')
           # plt.title(f'{key}_after_channel_{i}')
           plt.axis('off')
-          plt.savefig(os.path.join(self.save_path, f'{key}_{status}_histoEqual.png'))
+          #plt.savefig(os.path.join(self.save_path, f'{key}_{status}_histoEqual.png'))
           plt.close()
 
     def __call__(self, data):
@@ -90,7 +90,7 @@ class UnsharpMasking3D(Transform):
         self.strength = strength
         self.axis = axis
         self.save_path = save_path
-        os.makedirs(self.save_path, exist_ok=True)
+        #os.makedirs(self.save_path, exist_ok=True)
 
     def save_image(self, data, key):
       """
@@ -107,7 +107,7 @@ class UnsharpMasking3D(Transform):
           plt.imshow(img, cmap='gray')
           # plt.title(f'{key}_after_channel_{i}')
           plt.axis('off')
-          plt.savefig(os.path.join(self.save_path, f'{key}_after_unsharp.png'))
+          #plt.savefig(os.path.join(self.save_path, f'{key}_after_unsharp.png'))
           plt.close()
 
     def __call__(self, data):
@@ -143,7 +143,7 @@ class UnsharpMasking3D(Transform):
                         output[:, :, i] = enhanced_slice
 
                  # Save image after transform
-                self.save_image(output, key)
+                # self.save_image(output, key)
 
                 # Update the data dictionary
                 data[key] = output
