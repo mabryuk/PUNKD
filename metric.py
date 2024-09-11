@@ -39,8 +39,8 @@ class SeparateDiceMetric:
 
     def update(self, outputs, targets):
         assert outputs.shape == targets.shape, "Outputs and targets must have the same shape"
-        outputs = outputs.numpy() if isinstance(outputs, torch.Tensor) else outputs
-        targets = targets.numpy() if isinstance(targets, torch.Tensor) else targets
+        outputs = outputs.cpu().numpy() if isinstance(outputs, torch.Tensor) else outputs
+        targets = targets.cpu().numpy() if isinstance(targets, torch.Tensor) else targets
 
         whole_dice = DSC_whole(outputs, targets)
         enhancing_dice = DSC_en(outputs, targets)
@@ -82,8 +82,8 @@ class AllDiceMetric:
         intersection = (outputs * targets).sum(dim=(2, 3, 4))
         union = outputs.sum(dim=(2, 3, 4)) + targets.sum(dim=(2, 3, 4))
 
-        self.intersections += intersection.sum(dim=1)
-        self.unions += union.sum(dim=1)
+        self.intersections += intersection.sum(dim=(0, 1))
+        self.unions += union.sum(dim=(0, 1))
 
     def aggregate(self):
         dice_score = (2.0 * self.intersections + self.smooth) / (self.unions + self.smooth)

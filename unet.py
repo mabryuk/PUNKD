@@ -149,8 +149,8 @@ def validate_epoch(model, val_loader, criterion_all, criterion_sep, device):
             if outputs.shape != targets.shape:
                 outputs = outputs.permute(0, 2, 1, 3, 4)
             
-            val_outputs = outputs.cpu()
-            val_labels = targets.cpu()
+            val_outputs = outputs
+            val_labels = targets
             combined_val_outputs = torch.argmax(val_outputs, dim=1, keepdim=True)
             combined_val_labels = torch.argmax(val_labels, dim=1, keepdim=True)
             
