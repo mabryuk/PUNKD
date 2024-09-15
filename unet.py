@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from monai.transforms import AsDiscrete
+from monai.metrics import DiceMetric
 from tqdm.notebook import tqdm
 
 
@@ -10,10 +11,10 @@ class EncoderBlock(nn.Module):
         super(EncoderBlock, self).__init__()
         
         self.conv_block = nn.Sequential(nn.Conv3d(in_channels, out_channels, kernel_size=3, stride=1, padding=1),
-        nn.InstanceNorm3d(out_channels, affine=False, track_running_stats=False),
+        nn.BatchNorm3d(out_channels, affine=False, track_running_stats=False),
         nn.ReLU(inplace=True),
         nn.Conv3d(out_channels, out_channels, kernel_size=3, stride=1, padding=1),
-        nn.InstanceNorm3d(out_channels, affine=False, track_running_stats=False),
+        nn.BatchNorm3d(out_channels, affine=False, track_running_stats=False),
         nn.ReLU(inplace=True))
 
     def forward(self, x):
@@ -79,12 +80,12 @@ class FlexUNet(nn.Module):
 
 # Define the training function
 
-one_hot_transform = AsDiscrete(to_onehot=4, dim=1)
+
 
 def train_epoch(model, train_loader, criterion, optimizer, device):
     model.train()
     loss_item = 0.0
-    
+    one_hot_transform = AsDiscrete(to_onehot=4, dim=1)
     for data in tqdm(train_loader, desc="Training", unit="batch", position=1, leave=False):
         inputs = torch.cat([
             data["t1"], data["t2"], data["t1ce"], data["flair"]
@@ -121,11 +122,10 @@ def train_epoch(model, train_loader, criterion, optimizer, device):
     return loss_item / len(train_loader)
 
 # Define the validation function
-def validate_epoch(model, val_loader, criterion_all, criterion_sep, device):
+def validate_epoch(model, val_loader, score_fn, device):
     model.eval()
-    criterion_all.reset()
-    criterion_sep.reset()
-    loss_item = 0.0
+    one_hot_transform = AsDiscrete(to_onehot=4, dim=1)
+    score = torch.tensor([0.0, 0.0, 0.0]).unsqueeze(0).to(device)
     with torch.no_grad():
         for data in tqdm(val_loader, desc="Validation", unit="batch", position=1, leave=False):
             inputs = torch.cat([
@@ -148,13 +148,10 @@ def validate_epoch(model, val_loader, criterion_all, criterion_sep, device):
             # Ensure the outputs have the correct shape
             if outputs.shape != targets.shape:
                 outputs = outputs.permute(0, 2, 1, 3, 4)
+        
+        score += torch.nan_to_num(score_fn(outputs, targets), nan=0.0, posinf=0.0, neginf=0.0)
             
-            val_outputs = outputs
-            val_labels = targets
-            combined_val_outputs = torch.argmax(val_outputs, dim=1, keepdim=True)
-            combined_val_labels = torch.argmax(val_labels, dim=1, keepdim=True)
-            
-            criterion_all.update(outputs=val_outputs, targets=val_labels)
-            criterion_sep.update(combined_val_outputs,combined_val_labels)
+    score /= len(val_loader)
+    classes = score.cpu().numpy().flatten()
     
-    return criterion_all.aggregate().item(), criterion_sep.aggregate()
+    return score.mean().item(), classes

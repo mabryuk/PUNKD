@@ -51,6 +51,7 @@ nvidia-nvjitlink-cu12==12.6.20
 nvidia-nvtx-cu12==12.1.105
 onnx==1.16.2
 packaging==24.1
+pandas==2.2.2
 parso==0.8.4
 patool==2.4.0
 pexpect==4.9.0
@@ -66,6 +67,7 @@ pyparsing==3.1.4
 PySocks==1.7.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
+pytz==2024.2
 pyzmq==26.2.0
 requests==2.32.3
 s3transfer==0.10.2
@@ -81,6 +83,7 @@ tornado==6.4.1
 traitlets==5.14.3
 triton==3.0.0
 typing_extensions==4.12.2
+tzdata==2024.1
 urllib3==2.2.2
 vscode-tqdm==4.66.2
 wcwidth==0.2.13
