@@ -1,0 +1,8 @@
+{
+    "EPOCHS" : 100,
+    "MODEL_SIZE" : 64,
+    "TRAIN_BATCH_SIZE" : 8,
+    "VAL_BATCH_SIZE" : 2,
+    "CPU_WORKERS" : 16,
+    "LEARNING_RATE" : 0.0001
+}

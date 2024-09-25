@@ -6,3 +6,4 @@ data/
 *.pth
 archive.zip
 /.venv/
+punkd/__pycache__/
