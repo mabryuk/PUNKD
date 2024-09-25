@@ -1,45 +1,49 @@
 import torch
 import torch.nn as nn
 from monai.transforms import AsDiscrete
-from monai.metrics import DiceMetric
 from tqdm.notebook import tqdm
 
+class ResidualBlock(nn.Module):
+    def __init__(self, in_channels, out_channels):
+        super(ResidualBlock, self).__init__()
+        self.conv_block = nn.Sequential(
+        nn.Conv3d(in_channels, out_channels, kernel_size=(3, 3, 3), stride=1, padding=(1, 1, 1)),
+        nn.BatchNorm3d(out_channels),
+        nn.ReLU(inplace=True),
+        nn.Conv3d(out_channels, out_channels, kernel_size=(3, 3, 3), stride=1, padding=(1, 1, 1)),
+        nn.BatchNorm3d(out_channels),
+        nn.ReLU(inplace=True))
+        
+    def forward(self, x):
+        x = self.conv_block(x)
+        return x
 
 # Define the building blocks of the U-Net model
 class EncoderBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(EncoderBlock, self).__init__()
         
-        self.conv_block = nn.Sequential(nn.Conv3d(in_channels, out_channels, kernel_size=3, stride=1, padding=1),
-        nn.BatchNorm3d(out_channels, affine=False, track_running_stats=False),
-        nn.ReLU(inplace=True),
-        nn.Conv3d(out_channels, out_channels, kernel_size=3, stride=1, padding=1),
-        nn.BatchNorm3d(out_channels, affine=False, track_running_stats=False),
-        nn.ReLU(inplace=True))
+        self.conv_block = ResidualBlock(in_channels, out_channels)
+        self.pool = nn.MaxPool3d(kernel_size=(2, 2, 2), stride=2)
 
     def forward(self, x):
         x = self.conv_block(x)
-        return x
+        pooled = self.pool(x)
+        return x, pooled
 
 class DecoderBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(DecoderBlock, self).__init__()
-        self.conv_block = nn.Sequential(nn.Conv3d(in_channels, out_channels, kernel_size=3, stride=1, padding=1),
-        nn.ReLU(inplace=True),
-        nn.Conv3d(out_channels, out_channels, kernel_size=3, stride=1, padding=1),
-        nn.ReLU(inplace=True))
-        
-        self.upsample = nn.ConvTranspose3d(in_channels, in_channels//2, kernel_size=2, stride=2)
+        self.upsample = nn.ConvTranspose3d(in_channels, in_channels//2, kernel_size=(2, 2, 2), stride=2)
+        self.conv_block = ResidualBlock(in_channels, out_channels)
     
     def forward(self, skip, x):
         x = self.upsample(x)
-        x = torch.cat((x, skip), 1)
+        x = torch.cat((skip, x), 1)
         x = self.conv_block(x)
         return x
         
 
-def pool3d(x):
-    return nn.MaxPool3d(kernel_size=2, stride=2)(x)
 
 # Define the U-Net model
 class FlexUNet(nn.Module):
@@ -62,11 +66,11 @@ class FlexUNet(nn.Module):
         self.conv = nn.Conv3d(layer_sizes[0], num_classes, kernel_size=1, stride=1)
     
     def forward(self, x):
-        e1 = self.encoder1(x)
-        e2 = self.encoder2(pool3d(e1))
-        e3 = self.encoder3(pool3d(e2))
-        e4 = self.encoder4(pool3d(e3))
-        e5 = self.encoder5(pool3d(e4))
+        e1, p1 = self.encoder1(x)
+        e2, p2 = self.encoder2(p1)
+        e3, p3 = self.encoder3(p2)
+        e4, p4 = self.encoder4(p3)
+        e5, _ = self.encoder5(p4)
         
         d1 = self.decoder1(e4, e5)
         d2 = self.decoder2(e3, d1)
@@ -125,7 +129,6 @@ def train_epoch(model, train_loader, criterion, optimizer, device):
 def validate_epoch(model, val_loader, score_fn, device):
     model.eval()
     one_hot_transform = AsDiscrete(to_onehot=4, dim=1)
-    score = torch.tensor([0.0, 0.0, 0.0]).unsqueeze(0).to(device)
     with torch.no_grad():
         for data in tqdm(val_loader, desc="Validation", unit="batch", position=1, leave=False):
             inputs = torch.cat([
@@ -149,9 +152,6 @@ def validate_epoch(model, val_loader, score_fn, device):
             if outputs.shape != targets.shape:
                 outputs = outputs.permute(0, 2, 1, 3, 4)
         
-        score += torch.nan_to_num(score_fn(outputs, targets), nan=0.0, posinf=0.0, neginf=0.0)
-            
-    score /= len(val_loader)
-    classes = score.cpu().numpy().flatten()
-    
-    return score.mean().item(), classes
+            score_fn(y_pred=outputs, y=targets)
+        res = score_fn.aggregate().to('cpu').numpy().flatten()
+        return res.mean(), res
