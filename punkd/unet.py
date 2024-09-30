@@ -56,7 +56,8 @@ class FlexUNet(nn.Module):
         self.encoder2 = EncoderBlock(layer_sizes[0], layer_sizes[1])
         self.encoder3 = EncoderBlock(layer_sizes[1], layer_sizes[2])
         self.encoder4 = EncoderBlock(layer_sizes[2], layer_sizes[3])
-        self.encoder5 = EncoderBlock(layer_sizes[3], layer_sizes[4])
+        
+        self.bottleneck = ResidualBlock(layer_sizes[3], layer_sizes[4])
         
         self.decoder1 = DecoderBlock(layer_sizes[4], layer_sizes[3])
         self.decoder2 = DecoderBlock(layer_sizes[3], layer_sizes[2])
@@ -70,9 +71,10 @@ class FlexUNet(nn.Module):
         e2, p2 = self.encoder2(p1)
         e3, p3 = self.encoder3(p2)
         e4, p4 = self.encoder4(p3)
-        e5, _ = self.encoder5(p4)
         
-        d1 = self.decoder1(e4, e5)
+        b = self.bottleneck(p4)
+        
+        d1 = self.decoder1(e4, b)
         d2 = self.decoder2(e3, d1)
         d3 = self.decoder3(e2, d2)
         d4 = self.decoder4(e1, d3)
