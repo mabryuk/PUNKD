@@ -88,7 +88,7 @@ class FlexUNet(nn.Module):
 
 
 
-def train_epoch(model, train_loader, criterion, optimizer, device):
+def train_epoch(model, train_loader, criterion, optimizer, scheduler, device):
     model.train()
     loss_item = 0.0
     one_hot_transform = AsDiscrete(to_onehot=4, dim=1)
@@ -106,6 +106,7 @@ def train_epoch(model, train_loader, criterion, optimizer, device):
         targets = one_hot_transform(targets)
         
         optimizer.zero_grad()
+
         
         outputs = model(inputs)
         loss = criterion(outputs, targets)
@@ -125,6 +126,8 @@ def train_epoch(model, train_loader, criterion, optimizer, device):
         
         loss_item += loss.item()
     
+    scheduler.step()
+
     return loss_item / len(train_loader)
 
 # Define the validation function
