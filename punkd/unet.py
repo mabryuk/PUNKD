@@ -157,6 +157,6 @@ def validate_epoch(model, val_loader, score_fn, device):
             if outputs.shape != targets.shape:
                 outputs = outputs.permute(0, 2, 1, 3, 4)
         
-            score_fn(y_pred=outputs, y=targets)
+            score_fn(outputs, targets)
         res = score_fn.aggregate().to('cpu').numpy().flatten()
         return res.mean(), res
