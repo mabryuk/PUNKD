@@ -1,8 +1,11 @@
 {
-    "EPOCHS" : 100,
-    "MODEL_SIZE" : 64,
-    "TRAIN_BATCH_SIZE" : 8,
-    "VAL_BATCH_SIZE" : 2,
-    "CPU_WORKERS" : 16,
-    "LEARNING_RATE" : 0.0001
+    "EPOCHS": 100,
+    "TEACHER_MODEL_SIZE": 64,
+    "STUDENT_MODEL_SIZE": 32,
+    "TRAIN_BATCH_SIZE": 8,
+    "VAL_BATCH_SIZE": 2,
+    "CPU_WORKERS": 16,
+    "LEARNING_RATE": 0.0001,
+    "TEMPERATURE": 3,
+    "ALPHA": 0.5
 }

@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 from monai.transforms import AsDiscrete
 from tqdm.notebook import tqdm
+import torch.nn.functional as F
+from punkd.diceMetrices import DiceLoss
 
 class ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
@@ -82,7 +84,11 @@ class FlexUNet(nn.Module):
         out = self.conv(d4)
         
         return out
-    
+
+
+class FlexUNetStudent(FlexUNet):
+    def __init__(self, model_size=32):  
+        super().__init__(model_size=model_size)      
 
 # Define the training function
 
@@ -160,3 +166,59 @@ def validate_epoch(model, val_loader, score_fn, device):
             score_fn(outputs, targets)
         res = score_fn.aggregate().to('cpu').numpy().flatten()
         return res.mean(), res
+    
+    
+  
+    
+def student_train_epoch(student_model, teacher_model, train_loader, optimizer, scheduler, device, temperature=3, alpha=0.5):
+   
+    student_model.train()
+    teacher_model.eval()  # Teacher model in evaluation mode
+    loss_item = 0.0
+    one_hot_transform = AsDiscrete(to_onehot=4, dim=1)
+
+    for data in tqdm(train_loader, desc="Training", unit="batch", position=1, leave=False):
+        # Prepare inputs and targets
+        inputs = torch.cat([
+            data["t1"], data["t2"], data["t1ce"], data["flair"]
+        ], dim=1).to(device)
+
+        targets = data["seg"].to(device)
+        targets[targets == 4] = 3  # Map class 4 to class 3
+
+        if targets.shape[1] != 1:
+            targets = targets.unsqueeze(1)
+
+        targets = one_hot_transform(targets)
+        
+        optimizer.zero_grad()
+
+        # Forward pass through student and teacher models
+        student_logits = student_model(inputs)
+        with torch.no_grad():
+            teacher_logits = teacher_model(inputs)
+        
+        # Compute distillation loss
+        soft_targets = F.softmax(teacher_logits / temperature, dim=1)
+        soft_outputs = F.log_softmax(student_logits / temperature, dim=1)
+
+        distillation_loss = F.kl_div(
+            soft_outputs, soft_targets, reduction="batchmean"
+        ) * (temperature**2)
+
+        # Compute hard loss (Dice loss)
+        dice_loss = DiceLoss()
+        hard_loss = dice_loss(student_logits, targets)
+
+        # Total loss: weighted sum of distillation and hard loss
+        total_loss = alpha * distillation_loss + (1 - alpha) * hard_loss
+
+        # Backpropagation
+        total_loss.backward()
+        optimizer.step()
+
+        loss_item += total_loss.item()
+
+    scheduler.step()
+    return loss_item / len(train_loader)
+    
