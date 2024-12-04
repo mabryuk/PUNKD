@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import numpy as np
 from monai.transforms import AsDiscrete
 from tqdm.notebook import tqdm
 import torch.nn.functional as F
@@ -140,14 +141,18 @@ def train_epoch(model, train_loader, criterion, optimizer, scheduler, device):
 def validate_epoch(model, val_loader, score_fn, device):
     model.eval()
     one_hot_transform = AsDiscrete(to_onehot=4, dim=1)
+    score_fn.reset()  # Clear previous scores
+
+    class_scores = [[] for _ in range(4)]  # To store scores for each class (background, tumor, enhancing, core)
+    
     with torch.no_grad():
         for data in tqdm(val_loader, desc="Validation", unit="batch", position=1, leave=False):
             inputs = torch.cat([
-            data["t1"], data["t2"], data["t1ce"], data["flair"]
+                data["t1"], data["t2"], data["t1ce"], data["flair"]
             ], dim=1).to(device)
             
             targets = data["seg"].to(device)
-            targets[targets == 4] = 3
+            targets[targets == 4] = 3  # Remap class 4 to 3
             
             if targets.shape[1] != 1:
                 targets = targets.unsqueeze(1)
@@ -155,17 +160,21 @@ def validate_epoch(model, val_loader, score_fn, device):
             targets = one_hot_transform(targets)
             
             outputs = model(inputs)
+            outputs = torch.softmax(outputs, dim=1)  # Apply softmax
             
-            # Apply softmax if not included in the model
-            outputs = torch.softmax(outputs, dim=1)
-
-            # Ensure the outputs have the correct shape
             if outputs.shape != targets.shape:
                 outputs = outputs.permute(0, 2, 1, 3, 4)
+            
+            for i in range(4):  # Loop through each class
+                class_score = score_fn(outputs[:, i], targets[:, i])  # Dice score per class
+                class_scores[i].append(class_score.item())
         
-            score_fn(outputs, targets)
-        res = score_fn.aggregate().to('cpu').numpy().flatten()
-        return res.mean(), res
+    # Aggregate class-wise scores
+    class_means = [np.mean(scores) if scores else 0.0 for scores in class_scores]
+    total_score = np.mean(class_means)  # Mean score across all classes
+
+    return total_score, class_means  # Return total and individual class scores
+
     
     
   

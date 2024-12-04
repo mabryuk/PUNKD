@@ -9,8 +9,8 @@ class DiceLoss(nn.Module):
         self.smooth = smooth
 
     def calculate_dice(self, predict, target):
-        predict = predict.view(-1)  
-        target = target.view(-1)  
+        predict = predict.reshape(-1)  # Use reshape instead of view
+        target = target.reshape(-1)   # Use reshape instead of view
         
         intersection = torch.sum(predict * target)  
         union = torch.sum(predict.pow(2)) + torch.sum(target) 
@@ -19,7 +19,8 @@ class DiceLoss(nn.Module):
 
     def forward(self, predict, target):
         dice_coef = self.calculate_dice(predict, target)
-        return 1 - dice_coef  #Dice loss
+        return 1 - dice_coef  # Dice loss
+
 
 
 
@@ -36,9 +37,26 @@ if __name__ == '__main__':
 
 
 class DiceScore(DiceLoss):
+    def __init__(self, smooth=1e-6):
+        super(DiceScore, self).__init__(smooth)
+        self.scores = []  # List to store batch-wise scores
+
     def forward(self, predict, target):
         dice_coef = self.calculate_dice(predict, target)
-        return dice_coef  #Dice Score
+        self.scores.append(dice_coef.item())  # Store the score as a float
+        return dice_coef
+
+    def aggregate(self):
+        # Compute the mean Dice score across all stored scores
+        if not self.scores:
+            raise ValueError("No scores to aggregate. Ensure forward() is called.")
+        mean_score = np.mean(self.scores)
+        return torch.tensor(mean_score)  # Return as a torch tensor for consistency
+
+    def reset(self):
+        # Clear the stored scores for the next epoch
+        self.scores = []
+
     
 
 if __name__ == '__main__':
