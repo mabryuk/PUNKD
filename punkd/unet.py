@@ -87,15 +87,8 @@ class FlexUNet(nn.Module):
         return out
 
 
-class FlexUNetStudent(FlexUNet):
-    def __init__(self, model_size=32):  
-        super().__init__(model_size=model_size)      
 
-# Define the training function
-
-
-
-def train_epoch(model, train_loader, criterion, optimizer, scheduler, device):
+def train_epoch(model, train_loader, criterion, optimizer, device):
     model.train()
     loss_item = 0.0
     one_hot_transform = AsDiscrete(to_onehot=4, dim=1)
@@ -113,10 +106,7 @@ def train_epoch(model, train_loader, criterion, optimizer, scheduler, device):
         targets = one_hot_transform(targets)
         
         optimizer.zero_grad()
-
-        
         outputs = model(inputs)
-        loss = criterion(outputs, targets)
         
         # Apply softmax if not included in the model
         outputs = torch.softmax(outputs, dim=1)
@@ -128,23 +118,20 @@ def train_epoch(model, train_loader, criterion, optimizer, scheduler, device):
         # Make sure the shapes match before loss calculation
         assert outputs.shape == targets.shape, f"Shape mismatch: outputs {outputs.shape}, labels {targets.shape}"
         
+        loss = criterion(outputs, targets)
+        
         loss.backward()
         optimizer.step()
-        
         loss_item += loss.item()
     
-    scheduler.step()
-
     return loss_item / len(train_loader)
 
 # Define the validation function
 def validate_epoch(model, val_loader, score_fn, device):
     model.eval()
     one_hot_transform = AsDiscrete(to_onehot=4, dim=1)
-    score_fn.reset()  # Clear previous scores
+    score_fn.reset()
 
-    class_scores = [[] for _ in range(4)]  # To store scores for each class (background, tumor, enhancing, core)
-    
     with torch.no_grad():
         for data in tqdm(val_loader, desc="Validation", unit="batch", position=1, leave=False):
             inputs = torch.cat([
@@ -164,22 +151,20 @@ def validate_epoch(model, val_loader, score_fn, device):
             
             if outputs.shape != targets.shape:
                 outputs = outputs.permute(0, 2, 1, 3, 4)
+                
+            score_fn(outputs, targets)
             
-            for i in range(4):  # Loop through each class
-                class_score = score_fn(outputs[:, i], targets[:, i])  # Dice score per class
-                class_scores[i].append(class_score.item())
-        
     # Aggregate class-wise scores
-    class_means = [np.mean(scores) if scores else 0.0 for scores in class_scores]
-    total_score = np.mean(class_means)  # Mean score across all classes
+    class_means = score_fn.aggregate()
+    total_score =  torch.mean(class_means).item() # Mean score across all classes
 
-    return total_score, class_means  # Return total and individual class scores
+    return total_score, class_means.detach().cpu().numpy().tolist()
 
     
     
   
     
-def student_train_epoch(student_model, teacher_model, train_loader, optimizer, scheduler, device, temperature=3, alpha=0.5):
+def student_train_epoch(student_model, teacher_model, train_loader, optimizer, device, temperature=3, alpha=0.5):
    
     student_model.train()
     teacher_model.eval()  # Teacher model in evaluation mode
@@ -228,6 +213,5 @@ def student_train_epoch(student_model, teacher_model, train_loader, optimizer, s
 
         loss_item += total_loss.item()
 
-    scheduler.step()
     return loss_item / len(train_loader)
     
