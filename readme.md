@@ -2,6 +2,10 @@
 
 This is a collection of notebooks and scripts that goes through the process of distilling a U-Net64 model (teacher) into a U-Net16 model (student). Both models are trained on the [BRATS 2020 dataset](https://www.med.upenn.edu/cbica/brats2020/data.html) using pytorch. The dataset is preprocessed then both the teacher and the student model is trained for 100 epochs. The student model is then evaluated and compared against the teacher model and a model that is of the same size but lacking knowledge distillation.
 
+# Dev Container
+
+The repository contains a devcontainer configuration that can be used to run the code in a container. To use the devcontainer, you need to have [Docker](https://docs.docker.com/get-docker/) and [Visual Studio Code](https://code.visualstudio.com/) installed on your machine. as well as the [Remote Development](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.vscode-remote-extensionpack) extension pack for Visual Studio Code.
+
 # Installing dependencies
 
 [CUDA](https://developer.nvidia.com/cuda-downloads) Version 12.3 >= is required to run the code.
@@ -12,19 +16,26 @@ This is a collection of notebooks and scripts that goes through the process of d
 
 ## Create a virtual environment
 ```bash
-python3 -m venv env
+conda create -n <ENV_NAME> python=<PYTHON_VERSION>
 ```
 
 ## Activate the virtual environment
 
 ```bash
-source env/bin/activate
+conda activate <ENV_NAME>
+```
+
+## Add the pytorch and conda-forge channels
+    
+```bash
+conda config --add channels pytorch
+conda config --add channels conda-forge
 ```
 
 ## Install modules
 
 ```bash
-python3 -m pip install -r requirements.txt
+conda update -n <ENV_NAME> -f environment.yml
 ```
 
 # Adding credentials for archiving models

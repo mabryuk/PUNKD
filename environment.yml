@@ -1,0 +1,19 @@
+name: punkd_env
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pytorch
+  - pytorch-cuda=12.4
+  - torchaudio
+  - torchvision
+  - python-dotenv
+  - tqdm
+  - gdown
+  - patool
+  - boto3
+  - scipy
+  - matplotlib
+  - scikit-image
+  - monai
+  - ipython
