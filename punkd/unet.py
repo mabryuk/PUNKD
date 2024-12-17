@@ -164,7 +164,7 @@ def validate_epoch(model, val_loader, score_fn, device):
     
   
     
-def student_train_epoch(student_model, teacher_model, train_loader, optimizer, device, temperature=3, alpha=0.5):
+def student_train_epoch(student_model, teacher_model, train_loader, optimizer, device, temperature=1, alpha=0.5):
    
     student_model.train()
     teacher_model.eval()  # Teacher model in evaluation mode
@@ -201,7 +201,7 @@ def student_train_epoch(student_model, teacher_model, train_loader, optimizer, d
         ) * (temperature**2)
 
         # Compute hard loss (Dice loss)
-        dice_loss = DiceLoss()
+        dice_loss = DiceLoss().to(device)
         hard_loss = dice_loss(student_logits, targets)
 
         # Total loss: weighted sum of distillation and hard loss
