@@ -88,7 +88,7 @@ class FlexUNet(nn.Module):
 
 
 
-def train_epoch(model, train_loader, criterion, optimizer, device):
+def train_epoch(model, train_loader, optimizer, device):
     model.train()
     loss_item = 0.0
     one_hot_transform = AsDiscrete(to_onehot=4, dim=1)
@@ -109,7 +109,7 @@ def train_epoch(model, train_loader, criterion, optimizer, device):
         outputs = model(inputs)
         
         # Apply softmax if not included in the model
-        outputs = torch.softmax(outputs, dim=1)
+        outputs = F.log_softmax(outputs, dim=1)
 
         # Ensure the outputs have the correct shape
         if outputs.shape != targets.shape:
@@ -118,7 +118,7 @@ def train_epoch(model, train_loader, criterion, optimizer, device):
         # Make sure the shapes match before loss calculation
         assert outputs.shape == targets.shape, f"Shape mismatch: outputs {outputs.shape}, labels {targets.shape}"
         
-        loss = criterion(outputs, targets)
+        loss = F.kl_div(outputs, targets, reduction='batchmean')
         
         loss.backward()
         optimizer.step()
@@ -170,6 +170,8 @@ def student_train_epoch(student_model, teacher_model, train_loader, optimizer, d
     teacher_model.eval()  # Teacher model in evaluation mode
     loss_item = 0.0
     one_hot_transform = AsDiscrete(to_onehot=4, dim=1)
+    dice_loss = DiceLoss().to(device)
+
 
     for data in tqdm(train_loader, desc="Training", unit="batch", position=1, leave=False):
         # Prepare inputs and targets
@@ -201,8 +203,9 @@ def student_train_epoch(student_model, teacher_model, train_loader, optimizer, d
         ) * (temperature**2)
 
         # Compute hard loss (Dice loss)
-        dice_loss = DiceLoss().to(device)
-        hard_loss = dice_loss(student_logits, targets)
+        student_log_prob = F.log_softmax(student_logits, dim=1)
+
+        hard_loss = F.kl_div(student_log_prob, targets, reduction="batchmean")
 
         # Total loss: weighted sum of distillation and hard loss
         total_loss = alpha * distillation_loss + (1 - alpha) * hard_loss
